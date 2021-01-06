@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FlatList,
   View,
@@ -9,13 +9,20 @@ import {
   Modal,
 } from 'react-native';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { AntDesign } from '@expo/vector-icons';
 
 import TodoItem from './TodoItem';
 import ArchiveScreen from './ArchiveList';
+
 export default function TodoList() {
-  const [actionList, setActionList] = useState(() => [
-    { id: Date.now().toString(), title: 'Задача 1', status: false },
+  useEffect(() => {
+    loadToStorage();
+    loadArchivesToStorage();
+  }, []);
+  const [actionList, setActionList] = useState([
+    { id: Math.random().toString(12), title: 'Задача 1', status: false },
   ]);
   const [archiveList, setArchiveList] = useState([]);
   const [openedArchive, setOpenedArchive] = useState(true);
@@ -23,8 +30,49 @@ export default function TodoList() {
   const [inputText, setInputText] = useState('');
   const [editableID, setEditableID] = useState('');
 
+  const saveToStorage = async () => {
+    try {
+      await AsyncStorage.setItem('todoList', JSON.stringify(actionList));
+    } catch (error) {
+      alert('saving data error');
+    }
+  };
+  const saveArchivesToStorage = async () => {
+    try {
+      await AsyncStorage.setItem('archiveList', JSON.stringify(archiveList));
+    } catch (error) {
+      alert('saving archives data error');
+    }
+  };
+
+  const loadToStorage = async () => {
+    try {
+      let todo = await AsyncStorage.getItem('todoList');
+      let todoObj = JSON.parse(todo);
+      actionList.map((item) => {
+        if (item.title !== null) {
+          setActionList(todoObj);
+        }
+      });
+    } catch (error) {
+      alert('loading data error');
+    }
+  };
+  const loadArchivesToStorage = async () => {
+    try {
+      let todo = await AsyncStorage.getItem('archiveList');
+      let archivesList = JSON.parse(todo);
+      setArchiveList(archivesList);
+    } catch (error) {
+      alert('loading archives data error');
+    }
+  };
+
   const showModal = () => {
     setOpenedModal(true);
+  };
+  const clearStorage = async () => {
+    AsyncStorage.clear();
   };
   const addAction = () => {
     setActionList([
@@ -47,7 +95,7 @@ export default function TodoList() {
   const handleID = (id) => {
     setEditableID(id);
   };
-  const updateText = () => {
+  const updateText = async () => {
     const newTitle = actionList.map((item) => {
       if (item.id === editableID) {
         item.title = inputText;
@@ -55,25 +103,39 @@ export default function TodoList() {
       }
       return item;
     });
+    await saveToStorage();
     setActionList(newTitle);
   };
 
-  const removeActions = (id) =>
-    setActionList(actionList.filter((item) => item.id !== id));
+  const removeActions = async (id) => {
+    try {
+      let todoList = await AsyncStorage.getItem('todoList');
+      let todosArr = JSON.parse(todoList);
+      let deletedTodo = todosArr.filter((item) => item.id !== id);
+      AsyncStorage.setItem('todoList', JSON.stringify(deletedTodo));
+      setActionList(deletedTodo);
+    } catch (error) {
+      alert('removing error');
+    }
+  };
 
-  const removeActionsToArchive = (id) => {
+  const removeActionsToArchive = async (id) => {
     const itemToArchive = actionList.find((item) => item.id === id);
     setArchiveList(archiveList.concat(itemToArchive));
     setArchiveList([...archiveList, itemToArchive]);
+    await saveArchivesToStorage();
   };
+
   const changeText = (text) => setInputText(text);
 
-  const completeAction = (id) =>
+  const completeAction = async (id) => {
     setActionList(
       actionList.map((item) =>
         item.id === id ? { ...item, status: !item.status } : item
       )
     );
+    await saveToStorage();
+  };
 
   return (
     <View
@@ -83,10 +145,12 @@ export default function TodoList() {
     >
       <TouchableOpacity
         style={styles.linkToArchive}
-        onPress={() => setOpenedArchive(!openedArchive)}
+        onPress={() => {
+          setOpenedArchive(!openedArchive), saveToStorage;
+        }}
       >
         <Text style={styles.linkTxt}>
-          {openedArchive ? 'Archive' : 'Actions'}
+          {openedArchive ? 'Archive' : 'Action'}
         </Text>
       </TouchableOpacity>
       <View style={openedArchive ? { display: 'none' } : { flex: 1 }}>
@@ -95,6 +159,21 @@ export default function TodoList() {
       <View style={openedArchive ? { flex: 1 } : { display: 'none' }}>
         <TouchableOpacity style={styles.addActionBtn} onPress={addAction}>
           <AntDesign name="pluscircleo" size={24} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            borderWidth: 1,
+            borderColor: '#000',
+            width: '30%',
+            height: 40,
+            alignSelf: 'center',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: '#fff',
+          }}
+          onPress={clearStorage}
+        >
+          <Text>Clear</Text>
         </TouchableOpacity>
         <View
           style={{

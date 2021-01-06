@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, FlatList } from 'react-native';
 
 import TodoItem from './TodoItem';
 
-export default function ArchiveList({ archiveList, remove, complete }) {
+export default function ArchiveList({ archiveList }) {
   return (
     <View>
       <FlatList
